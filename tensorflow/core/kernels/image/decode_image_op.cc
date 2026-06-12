@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-// See docs in ../ops/image_ops.cc
+//  See docs in ../ops/image_ops.cc
 
 #include <cmath>
 #include <cstdint>
@@ -373,6 +373,10 @@ class DecodeImageV2Op : public OpKernel {
     // Use eigen threadpooling to speed up the copy operation.
     const auto& device = context->eigen_device<Eigen::ThreadPoolDevice>();
     TTypes<uint8_t>::UnalignedConstFlat buffer_view(buffer, buffer_size);
+
+    OP_REQUIRES(context, output != nullptr,
+                absl::InternalError("Output tensor is null"));
+
     if (data_type_ == DataType::DT_UINT16) {
       uint16_t scale = floor((std::numeric_limits<uint16_t>::max() + 1) /
                              (std::numeric_limits<uint8_t>::max() + 1));
@@ -818,18 +822,20 @@ class DecodeImageV2Op : public OpKernel {
     const bool use_threads = (width * height > 1024 * 1024);
     uint8_t* buffer = webp::DecodeWebPAnimation(
         input,
-        [&](int num_frames, int width, int height, int channels) -> uint8_t* {
-          // If expand_animations is false, we want {height, width, channels}
-          // otherwise, we want {num_frames, height, width, channels} even if
-          // it's a single frame.
+        [&](int num_frames, int width, int height,
+            int alloc_channels) -> uint8_t* {
+          // If expand_animations is false, we want {height, width,
+          // alloc_channels} otherwise, we want {num_frames, height, width,
+          // alloc_channels} even if it's a single frame.
           absl::Status status;
 
           if (expand_animations_) {
             status = context->allocate_output(
-                0, TensorShape({num_frames, height, width, channels}), &output);
+                0, TensorShape({num_frames, height, width, alloc_channels}),
+                &output);
           } else {
             status = context->allocate_output(
-                0, TensorShape({height, width, channels}), &output);
+                0, TensorShape({height, width, alloc_channels}), &output);
           }
 
           if (!status.ok()) {
@@ -879,9 +885,8 @@ class DecodeImageV2Op : public OpKernel {
   }
 
  private:
-  void DecodeBMP(const uint8_t* input, const int row_size,
-                 uint8_t* const output, const int width, const int height,
-                 const int output_channels, const int input_channels,
+  void DecodeBMP(const uint8_t* input, int row_size, uint8_t* output, int width,
+                 int height, int output_channels, int input_channels,
                  bool top_down);
 
   int channels_ = 0;
@@ -902,10 +907,10 @@ REGISTER_KERNEL_BUILDER(Name("DecodeBmp").Device(DEVICE_CPU), DecodeImageV2Op);
 REGISTER_KERNEL_BUILDER(Name("DecodeWebP").Device(DEVICE_CPU), DecodeImageV2Op);
 REGISTER_KERNEL_BUILDER(Name("DecodeJxl").Device(DEVICE_CPU), DecodeImageV2Op);
 
-void DecodeImageV2Op::DecodeBMP(const uint8_t* input, const int row_size,
-                                uint8_t* const output, const int width,
-                                const int height, const int output_channels,
-                                const int input_channels, bool top_down) {
+void DecodeImageV2Op::DecodeBMP(const uint8_t* input, int row_size,
+                                uint8_t* output, int width, int height,
+                                int output_channels, int input_channels,
+                                bool top_down) {
   for (int i = 0; i < height; i++) {
     int src_pos;
     int dst_pos;
