@@ -762,6 +762,10 @@ NB_MODULE(_hlo, m) {
       }
       return std::make_shared<InstructionWrapper>(root, module_);
     }
+    std::optional<std::string> get_frontend_attribute(
+        absl::string_view key) const {
+      return inst_->get_frontend_attribute(key);
+    }
     Py_hash_t hash() const { return AbslHashToPythonHash(absl::HashOf(inst_)); }
     bool operator==(const InstructionWrapper& other) const {
       return inst_ == other.inst_;
@@ -779,6 +783,8 @@ NB_MODULE(_hlo, m) {
       .def("users", &InstructionWrapper::users)
       .def("operands", &InstructionWrapper::operands)
       .def("async_wrapped_root", &InstructionWrapper::async_wrapped_root)
+      .def("get_frontend_attribute",
+           &InstructionWrapper::get_frontend_attribute, nb::arg("key"))
       .def("__hash__", &InstructionWrapper::hash)
       .def("__eq__", &InstructionWrapper::operator==);
 
