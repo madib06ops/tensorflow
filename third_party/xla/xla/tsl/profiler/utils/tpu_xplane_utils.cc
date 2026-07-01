@@ -50,11 +50,8 @@ std::optional<int> GetTensorCoreId(absl::string_view plane_name) {
 }
 
 std::optional<int> GetSparseCoreId(absl::string_view plane_name) {
-  std::optional<int> core_id;
+  int core_id = -1;
   if (RE2::FullMatch(plane_name, {kSparseCorePlaneRegex}, &core_id)) {
-    return core_id;
-  }
-  if (RE2::FullMatch(plane_name, {kSparseCoreCAEPlaneRegex}, &core_id)) {
     return core_id;
   }
   return std::nullopt;
